@@ -20,8 +20,10 @@ interface FilterState {
 
 export default function FilterBar() {
   const { onlyFavs, setOnlyFavs } = useFavorites();
-  const bgColor = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const bgColor = useColorModeValue('brand.white', 'brand.gray.800');
+  const borderColor = useColorModeValue('brand.gray.200', 'brand.gray.700');
+  const textColor = useColorModeValue('brand.black', 'brand.white');
+  const secondaryTextColor = useColorModeValue('brand.gray.600', 'brand.gray.400');
   
   const [filters, setFilters] = useState<FilterState>({
     minPrice: '',
@@ -69,7 +71,7 @@ export default function FilterBar() {
     >
       <HStack spacing={6} align="center" justify="space-between">
         <HStack spacing={6}>
-          <Text fontSize="sm" fontWeight="medium" color="gray.600">
+          <Text fontSize="sm" fontWeight="medium" color={secondaryTextColor}>
             Filters:
           </Text>
           
@@ -95,23 +97,29 @@ export default function FilterBar() {
                   colorScheme="gray"
                 />
               </PopoverTrigger>
-              <PopoverContent width="300px">
+              <PopoverContent width="300px" bg={bgColor} borderColor={borderColor}>
                 <PopoverBody p={4}>
                   <VStack spacing={4}>
-                    <Text fontSize="sm" fontWeight="medium">Price Range</Text>
+                    <Text fontSize="sm" fontWeight="medium" color={textColor}>Price Range</Text>
                     <HStack>
                       <Input
                         placeholder="Min"
                         value={filters.minPrice}
                         onChange={(e) => setFilters(prev => ({ ...prev, minPrice: e.target.value }))}
                         size="sm"
+                        bg={useColorModeValue('brand.white', 'brand.gray.700')}
+                        borderColor={borderColor}
+                        color={textColor}
                       />
-                      <Text>-</Text>
+                      <Text color={textColor}>-</Text>
                       <Input
                         placeholder="Max"
                         value={filters.maxPrice}
                         onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value }))}
                         size="sm"
+                        bg={useColorModeValue('brand.white', 'brand.gray.700')}
+                        borderColor={borderColor}
+                        color={textColor}
                       />
                     </HStack>
                   </VStack>
@@ -129,14 +137,17 @@ export default function FilterBar() {
                   colorScheme="gray"
                 />
               </PopoverTrigger>
-              <PopoverContent width="200px">
+              <PopoverContent width="200px" bg={bgColor} borderColor={borderColor}>
                 <PopoverBody p={4}>
                   <VStack spacing={4}>
-                    <Text fontSize="sm" fontWeight="medium">Property Type</Text>
+                    <Text fontSize="sm" fontWeight="medium" color={textColor}>Property Type</Text>
                     <Select
                       value={filters.propertyType}
                       onChange={(e) => setFilters(prev => ({ ...prev, propertyType: e.target.value }))}
                       size="sm"
+                      bg={useColorModeValue('brand.white', 'brand.gray.700')}
+                      borderColor={borderColor}
+                      color={textColor}
                     >
                       <option value="">All Types</option>
                       <option value="house">House</option>
@@ -155,6 +166,8 @@ export default function FilterBar() {
           <Button
             size="sm"
             colorScheme="green"
+            bg="brand.green"
+            _hover={{ bg: 'brand.darkGreen' }}
             onClick={handleApplyFilters}
           >
             Apply Filters
