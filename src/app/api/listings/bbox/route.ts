@@ -11,30 +11,34 @@ export async function GET(req: Request) {
     return NextResponse.json({ message: 'Invalid bbox' }, { status: 400 });
   }
 
-  const listings = await prisma.listing.findMany({
-    where: {
-      latitude: { gte: sw[1], lte: ne[1] },
-      longitude: { gte: sw[0], lte: ne[0] }
-    },
-    take: 500,
-    orderBy: { createdAt: 'desc' },
-    select: {
+  try {
+    const listings = await prisma.listing.findMany({
+      where: {
+        latitude: { gte: sw[1], lte: ne[1] },
+        longitude: { gte: sw[0], lte: ne[0] }
+      },
+      take: 500,
+      orderBy: { createdAt: 'desc' },
+      select: {
         id: true,
         price: true,
-        latitude: true,       // alias later
-        longitude: true,      // alias later
+        latitude: true,
+        longitude: true,
         bedrooms: true,
         bathrooms: true,
         squareFeet: true,
         address: true,
         isAssumable: true,
         createdAt: true,
+        propertyType: true,
+        photoUrls: true
       }
-      
-  });
+    });
 
-  return NextResponse.json(
-    listings.map(l => ({
+    // Debug log
+    console.log('Found listings:', listings.length);
+
+    const formattedListings = listings.map(l => ({
       id: l.id,
       price: Number(l.price),
       lat: Number(l.latitude),
@@ -45,8 +49,13 @@ export async function GET(req: Request) {
       address: l.address,
       isAssumable: l.isAssumable,
       createdAt: l.createdAt.toISOString(),
-    }))
-  )
+      propertyType: l.propertyType,
+      imageUrl: l.photoUrls[0] || null
+    }));
 
-  
+    return NextResponse.json(formattedListings);
+  } catch (error) {
+    console.error('Error fetching listings:', error);
+    return NextResponse.json({ message: 'Error fetching listings' }, { status: 500 });
+  }
 }

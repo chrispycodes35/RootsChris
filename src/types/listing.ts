@@ -10,4 +10,6 @@ export interface ListingDTO {
   address: string
   isAssumable: boolean
   createdAt: string
+  isFavorite?: boolean
+  imageUrl?: string
 }

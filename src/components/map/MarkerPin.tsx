@@ -1,46 +1,46 @@
-// src/components/map/MarkerPin.tsx
 'use client';
 
-import { Marker } from 'react-map-gl/mapbox';
-import { motion } from 'framer-motion';
-import { LuHouse } from 'react-icons/lu';
+import { Marker } from 'react-map-gl';
+import { Box, Image } from '@chakra-ui/react';
 import type { ListingDTO } from '@/types/listing';
 
-const formatPrice = (price: number): string => {
-  if (price >= 1_000_000) {
-    return `${(price / 1_000_000).toFixed(1)}m`;
-  }
-  if (price >= 1_000) {
-    return `${(price / 1_000).toFixed(0)}k`;
-  }
-  return price.toString();
-};
-
-export const MarkerPin = ({
-  listing,
-  onClick,
-}: {
+type Props = {
   listing: ListingDTO;
   onClick: () => void;
-}) => (
-  <Marker longitude={listing.lng} latitude={listing.lat} anchor="bottom">
-    <div onClick={onClick} style={{ cursor: 'pointer' }}>
-      <motion.div whileHover={{ scale: 1.1 }} style={{ position: 'relative' }}>
-        <LuHouse size={28} color="#14e956" />
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          color: 'white',
-          fontSize: '10px',
-          fontWeight: 'bold',
-          textShadow: '0 0 2px black',
-          whiteSpace: 'nowrap'
-        }}>
-          ${formatPrice(listing.price)}
-        </div>
-      </motion.div>
-    </div>
-  </Marker>
-);
+  style?: React.CSSProperties;
+};
+
+export function MarkerPin({ listing, onClick, style }: Props) {
+  const { lat, lng, isFavorite } = listing;
+  
+  // Debug logs
+  console.log('Rendering marker:', { lat, lng, isFavorite });
+  
+  return (
+    <Marker
+      longitude={lng}
+      latitude={lat}
+      anchor="bottom"
+      onClick={onClick}
+      style={style}
+    >
+      <Box
+        position="relative"
+        width="32px"
+        height="32px"
+        cursor="pointer"
+        transform="translate(-50%, -50%)"
+        transition="transform 0.2s"
+        _hover={{ transform: 'translate(-50%, -50%) scale(1.1)' }}
+      >
+        <Image
+          src={isFavorite ? '/pin-fav.svg' : '/pin.svg'}
+          alt="Location marker"
+          width="100%"
+          height="100%"
+          objectFit="contain"
+        />
+      </Box>
+    </Marker>
+  );
+}

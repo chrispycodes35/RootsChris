@@ -1,6 +1,6 @@
 // src/hooks/useDebouncedBBox.ts
 import { useEffect, useState } from 'react'
-import type { ViewState } from 'react-map-gl/mapbox'
+import { ViewState } from 'react-map-gl'
 
 export function useDebouncedBBox(view: ViewState, delay = 400) {
   const [bbox, setBbox] = useState<

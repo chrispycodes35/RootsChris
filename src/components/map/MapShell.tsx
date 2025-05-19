@@ -1,91 +1,135 @@
-'use client'
-/*
-This component is the main component for the map.
-It is responsible for rendering the map and the listings on the map.
-*/
-import Map, { ViewState, ViewStateChangeEvent } from 'react-map-gl/mapbox'
-import { Box } from '@chakra-ui/react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { useDebouncedBBox } from '@/hooks/useDebouncedBBox'
-import { useClusters } from '@/hooks/useClusters'
-import { MarkerPin } from './MarkerPin'
-import { ListingPopup } from './ListingPopup'
-import { ClusterBubble } from './ClusterBubble'
-import type { ListingDTO } from '@/types/listing'
-import 'mapbox-gl/dist/mapbox-gl.css'
+'use client';
 
-const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!
-const PHOENIX: ViewState = {
-  longitude: -112.074, latitude: 33.448, zoom: 10, bearing: 0, pitch: 0,
-  padding: { top: 0, bottom: 0, left: 0, right: 0 }
-}
+import Map, { ViewState, NavigationControl } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { useState, useRef, useEffect, useMemo } from 'react';
 
-// Clustering configuration
-const CLUSTER_RADIUS = 120 // Increased radius to show more points per cluster (default was 50)
-const MAX_ZOOM = 17 // Increased zoom level at which clustering stops (default was 15)
-const MIN_POINTS = 2 // Minimum points required to form a cluster
+import { useDebouncedBBox } from '@/hooks/useDebouncedBBox';
+import { useClusters } from '@/hooks/useClusters';
+import { MarkerPin } from './MarkerPin';
+import { ClusterBubble } from './ClusterBubble';
+import { ListingPopup } from './ListingPopup';
+import { useFavorites } from '@/store/useFavorites';
+import type { ListingDTO } from '@/types/listing';
+
+const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
+const MAP_STYLE = 'mapbox://styles/mapbox/streets-v12';
+
+const INITIAL_VIEW: ViewState = {
+  longitude: -112.074,
+  latitude: 33.448,
+  zoom: 10,
+  bearing: 0,
+  pitch: 0,
+  padding: { top: 0, bottom: 0, left: 0, right: 0 },
+};
 
 export default function MapShell() {
-  /* ------------ camera ------------- */
-  const [view, setView] = useState<ViewState>(() => {
-    try { return JSON.parse(localStorage.getItem('roots-map-view')!) ?? PHOENIX }
-    catch { return PHOENIX }
-  })
-  useEffect(() => localStorage.setItem('roots-map-view', JSON.stringify(view)), [view])
+  // 1) camera
+  const [viewState, setViewState] = useState<ViewState>(INITIAL_VIEW);
+  const viewRef = useRef(viewState);
+  viewRef.current = viewState;
 
-  /* ------------ data --------------- */
-  const bbox = useDebouncedBBox(view, 400)
-  const { data: listings = [] } = useQuery({
-    enabled: !!bbox,
-    queryKey: ['bbox', bbox],
-    queryFn: async () => {
-      const { sw, ne } = bbox!
-      const res = await fetch(`/api/listings/bbox?sw=${sw}&ne=${ne}`)
-      if (!res.ok) throw new Error('bbox fetch failed')
-      return res.json() as Promise<ListingDTO[]>
-    },
-    staleTime: 30_000, refetchOnWindowFocus: false,
-  })
-  /* ------------ clustering --------- */
-  const { clusters, engine } = useClusters(listings, view.zoom)
+  // 2) popup
+  const [active, setActive] = useState<ListingDTO | null>(null);
 
-  /* ------------ handlers ----------- */
-  const onMove = useCallback((e: ViewStateChangeEvent) => setView(e.viewState), [])
-  const [active, setActive] = useState<ListingDTO | null>(null)
+  // 3) favorites
+  const { onlyFavs, isFavorite } = useFavorites();
 
-  /* ------------ render ------------- */
-  const pins = useMemo(() => clusters.map(c =>
-    !c.properties?.cluster ? (
-      <MarkerPin key={c.properties.id}
-                 listing={c.properties as ListingDTO}
-                 onClick={() => setActive(c.properties as ListingDTO)} />
-    ) : (
-      <ClusterBubble key={`c-${c.id}`}
-                     count={c.properties.point_count}
-                     longitude={c.geometry.coordinates[0]}
-                     latitude={c.geometry.coordinates[1]}
-                     onClick={() => {
-                       const zoom = Math.min(
-                         engine.getClusterExpansionZoom(c.id as number),
-                         MAX_ZOOM
-                       )
-                       setView(v => ({ ...v,
-                         longitude: c.geometry.coordinates[0],
-                         latitude: c.geometry.coordinates[1],
-                         zoom: zoom + 0.5 }))
-                     }}/>
-    )
-  ), [clusters, engine])
+  // 4) bounding box
+  const bbox = useDebouncedBBox(viewState, 400);
+
+  // 5) manual fetch
+  const [listings, setListings] = useState<ListingDTO[]>([]);
+  useEffect(() => {
+    if (!bbox) return;
+    const { sw, ne } = bbox;
+    fetch(`/api/listings/bbox?sw=${sw}&ne=${ne}`)
+      .then(r => {
+        if (!r.ok) throw new Error(r.statusText);
+        return r.json() as Promise<ListingDTO[]>;
+      })
+      .then(data => {
+        // stamp on your favorite flag
+        const withFav = data.map(l => ({ ...l, isFavorite: isFavorite(l.id) }));
+        console.log('✅ fetched listings:', withFav.length);
+        setListings(withFav);
+      })
+      .catch(console.error);
+  }, [bbox, isFavorite]);
+
+  // 6) filter listings
+  const filtered = useMemo(() => {
+    return listings.filter(listing => {
+      // Filter by favorites
+      if (onlyFavs && !isFavorite(listing.id)) {
+        return false;
+      }
+      return true;
+    });
+  }, [listings, onlyFavs, isFavorite]);
+
+  // 7) cluster them
+  const { clusters, engine } = useClusters(
+    filtered,
+    viewRef.current.zoom,
+    { radius: 50, maxZoom: 14, minPoints: 2 }
+  );
+
+  // 8) render pins & bubbles
+  const pins = useMemo(
+    () =>
+      clusters.map(c => {
+        if ('cluster' in c.properties) {
+          const [lng, lat] = c.geometry.coordinates;
+          return (
+            <ClusterBubble
+              key={`cluster-${c.id!}`}
+              count={c.properties.point_count}
+              longitude={lng}
+              latitude={lat}
+              onClick={() => {
+                const exp = engine.getClusterExpansionZoom(+c.id!);
+                setViewState(vs => ({
+                  ...vs,
+                  longitude: lng,
+                  latitude: lat,
+                  zoom: Math.min(exp, 16) + 0.1,
+                }));
+              }}
+            />
+          );
+        }
+        const listing = c.properties as ListingDTO;
+        return (
+          <MarkerPin
+            key={listing.id}
+            listing={listing}
+            onClick={() =>
+              setActive(a => (a?.id === listing.id ? null : listing))
+            }
+          />
+        );
+      }),
+    [clusters, engine]
+  );
 
   return (
-    <Box w="100%" h="100%">
-      <Map {...view} onMove={onMove}
-           mapStyle="mapbox://styles/mapbox/light-v11"
-           reuseMaps mapboxAccessToken={TOKEN}>
-        {pins}
-        {active && <ListingPopup listing={active} onClose={() => setActive(null)} />}
-      </Map>
-    </Box>
-  )
+    <Map
+      initialViewState={INITIAL_VIEW}
+      mapboxAccessToken={TOKEN}
+      mapStyle={MAP_STYLE}
+      style={{ width: '100%', height: '100%' }}
+      minZoom={5}
+      maxZoom={17}
+      onMoveEnd={({ viewState: vs }) => {
+        setViewState(vs);
+        localStorage.setItem('roots-map-view', JSON.stringify(vs));
+      }}
+    >
+      <NavigationControl position="top-left" />
+      {pins}
+      {active && <ListingPopup listing={active} onClose={() => setActive(null)} />}
+    </Map>
+  );
 }
