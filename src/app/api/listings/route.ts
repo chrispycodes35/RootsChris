@@ -1,3 +1,4 @@
+// src/app/api/listings/route.ts
 import { NextResponse } from 'next/server'
 import { ListingService } from '@/services/listing.service'
 

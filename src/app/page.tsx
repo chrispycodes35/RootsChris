@@ -1,8 +1,15 @@
+// src/app/page.tsx
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useState } from 'react'
-import { Button, Heading, VStack, Text, Image, Box, SimpleGrid } from "@chakra-ui/react"
+import { Heading, Text, Box, Image, VStack, SimpleGrid, Button, Separator } from '@chakra-ui/react'
 
+
+
+const MapShell = dynamic(() => import('@/components/map/MapShell'), { ssr: false })
+
+/** one-to-one with the /api/listings/recent SELECT */
 interface Listing {
   id: string
   address: string
@@ -12,94 +19,62 @@ interface Listing {
   bedrooms: number | null
   bathrooms: number | null
   squareFeet: number | null
-  propertyType: string
   photoUrls: string[]
-  status: string
-  createdAt: string
 }
 
-export default function Home() {
+export default function HomePage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchRecentListings = async () => {
+  /* ------------ fetch helper ------------ */
+  async function fetchRecentListings() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch('/api/listings/recent')
-      if (!response.ok) {
-        throw new Error('Failed to fetch listings')
-      }
-      const data = await response.json()
-      setListings(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      const res = await fetch('/api/listings/recent')
+      if (!res.ok) throw new Error('Fetch failed')
+      setListings(await res.json())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error')
     } finally {
       setLoading(false)
     }
   }
 
+  /* -------------- render -------------- */
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center w-full max-w-6xl">
-        <Heading>Recent Listings</Heading>
-        
-        <Button
-          colorScheme="blue"
-          onClick={fetchRecentListings}
-          loading={loading}
-        >
-          {loading ? 'Fetching...' : 'Fetch Recent Listings'}
-        </Button>
+    <Box maxW="1280px" mx="auto" px={6} py={8}>
+      <Heading mb={4}>Recent Listings</Heading>
 
-        {error && (
-          <Text color="red.500">Error: {error}</Text>
-        )}
+      {/* Chakra v3 ➜ prop is `loading`, not `isLoading` :contentReference[oaicite:1]{index=1} */}
+      <Button mb={6} colorScheme="blue" onClick={fetchRecentListings} loading={loading}>
+        Fetch Recent Listings
+      </Button>
 
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6} width="100%">
-          {listings.map((listing) => (
-            <Box
-              key={listing.id}
-              borderWidth="1px"
-              borderRadius="lg"
-              overflow="hidden"
-              p={4}
-            >
-              {listing.photoUrls[0] && (
-                <Image
-                  src={listing.photoUrls[0]}
-                  alt={listing.address}
-                  height="200px"
-                  width="100%"
-                  objectFit="cover"
-                  borderRadius="md"
-                />
-              )}
-              <VStack align="start" mt={4} gap={2}>
-                <Text fontWeight="bold" fontSize="xl">
-                  ${listing.price.toLocaleString()}
-                </Text>
-                <Text>{listing.address}</Text>
-                {listing.city && listing.state && (
-                  <Text>{`${listing.city}, ${listing.state}`}</Text>
-                )}
-                <Text>
-                  {listing.bedrooms && `${listing.bedrooms} beds`}
-                  {listing.bathrooms && ` • ${listing.bathrooms} baths`}
-                  {listing.squareFeet && ` • ${listing.squareFeet} sqft`}
-                </Text>
-                <Text color="gray.500" fontSize="sm">
-                  {listing.propertyType}
-                </Text>
-                <Text color="blue.500" fontSize="sm">
-                  {listing.status}
-                </Text>
-              </VStack>
-            </Box>
-          ))}
-        </SimpleGrid>
-      </main>
-    </div>
+      {error && <Text color="red.500" mb={4}>{error}</Text>}
+
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+        {listings.map(l => (
+          <Box key={l.id} borderWidth="1px" borderRadius="md" overflow="hidden">
+            {l.photoUrls[0] && (
+              <Image src={l.photoUrls[0]} alt={l.address} h="200px" w="100%" objectFit="cover" />
+            )}
+            <VStack align="start" p={4} gap={2}>
+              <Text fontWeight="bold">${l.price.toLocaleString()}</Text>
+              <Text>{l.address}</Text>
+              {l.city && l.state && <Text>{`${l.city}, ${l.state}`}</Text>}
+            </VStack>
+          </Box>
+        ))}
+      </SimpleGrid>
+
+      <Separator my={10} />
+      <Text fontSize="lg" mb={4}>Explore the same listings on the map below 👇</Text>
+
+      <Box w="100%" h="600px" borderRadius="md" overflow="hidden">
+        <MapShell />
+      </Box>
+    </Box>
   )
 }

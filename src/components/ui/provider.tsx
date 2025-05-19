@@ -1,15 +1,30 @@
-"use client"
+// src/components/ui/provider.tsx
+'use client'
 
-import { ChakraProvider, defaultSystem } from "@chakra-ui/react"
+import { ReactNode, useState } from 'react'
+import { ChakraProvider, defaultSystem } from '@chakra-ui/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
 import {
   ColorModeProvider,
   type ColorModeProviderProps,
-} from "./color-mode"
+} from './color-mode'
 
-export function Provider(props: ColorModeProviderProps) {
+interface AppProviderProps extends ColorModeProviderProps {
+  children: ReactNode
+}
+
+export function Provider({ children, ...colorModeProps }: AppProviderProps) {
+  /* one stable instance ➜ avoids hydration mismatch */
+  const [client] = useState(() => new QueryClient())
+
   return (
-    <ChakraProvider value={defaultSystem}>
-      <ColorModeProvider {...props} />
-    </ChakraProvider>
+    <QueryClientProvider client={client}>
+      <ChakraProvider value={defaultSystem}>
+        <ColorModeProvider {...colorModeProps}>
+          {children}
+        </ColorModeProvider>
+      </ChakraProvider>
+    </QueryClientProvider>
   )
 }
