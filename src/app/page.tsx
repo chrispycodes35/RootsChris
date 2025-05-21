@@ -7,6 +7,7 @@ import FilterBar from '@/components/map/FilterBar';
 import { useColorMode } from '@chakra-ui/react';
 import { LuSun, LuMoon } from 'react-icons/lu';
 const DynamicMap = dynamic(() => import('@/components/map/MapShell'), { ssr: false });
+console.log("hello")
 
 import {
   Heading,
